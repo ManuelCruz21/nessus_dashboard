@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nessus Security Dashboard — Metasploitable 3</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0c10;
+  --surface: #10141c;
+  --surface2: #161b26;
+  --border: #1e2535;
+  --critical: #ff3b5c;
+  --high: #ff7c38;
+  --medium: #ffc542;
+  --low: #4fc3f7;
+  --info: #78909c;
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --accent: #7c5cfc;
+  --green: #22d3a5;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+/* GRID NOISE BACKGROUND */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(124,92,252,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(124,92,252,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+.container { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+/* HEADER */
+header {
+  padding: 40px 0 32px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 40px;
+}
+.header-inner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.header-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.logo-badge {
+  width: 48px; height: 48px;
+  background: linear-gradient(135deg, var(--critical), var(--accent));
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px;
+  box-shadow: 0 0 30px rgba(255,59,92,0.3);
+  flex-shrink: 0;
+}
+h1 {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  line-height: 1.2;
+}
+h1 span { color: var(--critical); }
+.subtitle {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  letter-spacing: 0.5px;
+}
+.scan-meta {
+  display: flex; gap: 12px; flex-wrap: wrap; align-items: center;
+}
+.meta-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  background: var(--surface);
+}
+.meta-tag strong { color: var(--text); }
+
+/* TABS */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 32px;
+  background: var(--surface);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  width: fit-content;
+}
+.tab {
+  padding: 10px 24px;
+  border-radius: 9px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  transition: all 0.2s;
+  color: var(--muted);
+  border: none;
+  background: transparent;
+  font-family: 'Syne', sans-serif;
+}
+.tab:hover { color: var(--text); background: var(--surface2); }
+.tab.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(124,92,252,0.4);
+}
+
+/* SECTION TITLE */
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--muted);
+  margin-bottom: 16px;
+  padding-left: 2px;
+}
+
+/* KPI CARDS */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 12px;
+  margin-bottom: 32px;
+}
+.kpi {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 16px;
+  position: relative;
+  overflow: hidden;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.kpi:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3); }
+.kpi::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 14px 14px 0 0;
+}
+.kpi.critical::before { background: var(--critical); box-shadow: 0 0 20px var(--critical); }
+.kpi.high::before { background: var(--high); box-shadow: 0 0 20px var(--high); }
+.kpi.medium::before { background: var(--medium); box-shadow: 0 0 20px var(--medium); }
+.kpi.low::before { background: var(--low); }
+.kpi.info::before { background: var(--info); }
+.kpi.total::before { background: linear-gradient(90deg, var(--accent), var(--green)); }
+.kpi-num {
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1;
+  margin-bottom: 6px;
+}
+.kpi.critical .kpi-num { color: var(--critical); }
+.kpi.high .kpi-num { color: var(--high); }
+.kpi.medium .kpi-num { color: var(--medium); }
+.kpi.low .kpi-num { color: var(--low); }
+.kpi.info .kpi-num { color: var(--info); }
+.kpi.total .kpi-num { color: var(--accent); }
+.kpi-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--muted);
+}
+.kpi-delta {
+  position: absolute;
+  top: 16px; right: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.kpi-delta.up { background: rgba(255,59,92,0.15); color: var(--critical); }
+.kpi-delta.down { background: rgba(34,211,165,0.15); color: var(--green); }
+
+/* CHARTS ROW */
+.charts-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.chart-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 24px;
+}
+.chart-card h3 {
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  color: var(--text);
+  letter-spacing: 0.2px;
+}
+canvas { width: 100% !important; }
+
+/* COMPARISON ROW */
+.comparison-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+/* DONUT LEGEND */
+.donut-wrap {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.donut-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.legend-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: auto;
+}
+
+/* TABLE */
+.table-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  margin-bottom: 32px;
+  overflow: hidden;
+}
+.table-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.table-header h3 {
+  font-size: 14px;
+  font-weight: 700;
+}
+.filter-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.filter-btn {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  padding: 5px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+.filter-btn:hover { border-color: var(--accent); color: var(--text); }
+.filter-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.filter-btn.fcritical.active { background: var(--critical); border-color: var(--critical); }
+.filter-btn.fhigh.active { background: var(--high); border-color: var(--high); }
+.filter-btn.fmedium.active { background: var(--medium); border-color: var(--medium); color: #000; }
+
+.search-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 7px 14px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text);
+  width: 200px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.search-box:focus { border-color: var(--accent); }
+
+.tbl-wrap { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+thead tr {
+  background: var(--surface2);
+}
+th {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--muted);
+  padding: 12px 16px;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 12px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  max-width: 300px;
+}
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: rgba(124,92,252,0.05); }
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 5px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.badge.Critical { background: rgba(255,59,92,0.15); color: var(--critical); border: 1px solid rgba(255,59,92,0.3); }
+.badge.High { background: rgba(255,124,56,0.15); color: var(--high); border: 1px solid rgba(255,124,56,0.3); }
+.badge.Medium { background: rgba(255,197,66,0.15); color: var(--medium); border: 1px solid rgba(255,197,66,0.3); }
+.badge.Low { background: rgba(79,195,247,0.15); color: var(--low); border: 1px solid rgba(79,195,247,0.3); }
+.badge.Info { background: rgba(120,144,156,0.15); color: var(--info); border: 1px solid rgba(120,144,156,0.3); }
+
+.port-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--green);
+  background: rgba(34,211,165,0.1);
+  padding: 2px 7px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+.cve-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--accent);
+  background: rgba(124,92,252,0.1);
+  padding: 2px 7px;
+  border-radius: 4px;
+  display: inline-block;    /* Permite que cada tag se comporte como um bloco individual */
+  white-space: normal;      /* Anula o nowrap antigo, permitindo quebras */
+  margin: 2px 0;
+}
+.exploit-tag {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--critical);
+  background: rgba(255,59,92,0.1);
+  padding: 2px 7px;
+  border-radius: 4px;
+}
+.name-cell { font-weight: 600; font-size: 12px; line-height: 1.4; }
+.desc-cell { color: var(--muted); font-size: 11px; line-height: 1.5; }
+.cvss-num { font-family: 'JetBrains Mono', monospace; font-size: 13px; font-weight: 700; }
+
+.page-hidden { display: none !important; }
+
+/* COMPARISON BARS */
+.compare-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.compare-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  width: 70px;
+  text-align: right;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.compare-bars {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bar-track {
+  height: 10px;
+  background: var(--surface2);
+  border-radius: 5px;
+  overflow: hidden;
+  position: relative;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.bar-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+.compare-val {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  width: 60px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* FOOTER */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 0;
+  margin-top: 40px;
+  text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.5px;
+}
+
+@media (max-width: 900px) {
+  .kpi-grid { grid-template-columns: repeat(3, 1fr); }
+  .charts-row { grid-template-columns: 1fr; }
+  .comparison-row { grid-template-columns: 1fr; }
+
+  tabs {
+    display: flex !important;
+    flex-wrap: wrap !important;   /* Deixa as abas saltarem de linha se não couberem */
+    width: 100% !important;       /* Ocupa a largura total do ecrã */
+    gap: 6px !important;
+    padding: 6px !important;
+  }
+
+  .tab {
+    padding: 8px 12px !important; /* Encolhe o espaçamento interno no telemóvel */
+    font-size: 11px !important;   /* Letra ligeiramente menor para caber melhor */
+    flex: 1 1 auto !important;    /* Faz os botões dividirem o espaço de forma igual */
+    text-align: center !important;
+  }
+
+  .tbl-wrap {
+    width: 100% !important;
+    overflow-x: auto !important;  /* Ativa o scroll lateral apenas dentro da tabela */
+    -webkit-overflow-scrolling: touch !important; /* Scroll suave no smartphone */
+  }
+
+  table {
+    min-width: 650px !important;  /* Impede a tabela de ficar esmagada e ilegível */
+  }
+
+  .exploit-tag {
+    font-size: 9px !important;
+    padding: 2px 5px !important;
+    white-space: nowrap !important; /* Impede que o texto "Explorável" se parta ao meio */
+    display: inline-block !important;
+  }
+  
+  .compare-row-item {
+    flex-wrap: wrap !important; /* Permite que as tags saltem para baixo se não houver espaço */
+    align-items: flex-start !important; /* Alinha melhor os itens quando quebram */
+    gap: 8px !important; /* Encurta um bocado o espaço entre os elementos */
+  }
+
+  /* Garante que o nome da vulnerabilidade não rouba o espaço todo e força a quebra */
+  .compare-row-item span:nth-child(3) {
+    width: 100% !important; /* Obriga o título longo a ocupar a linha dele */
+    margin-bottom: 2px;
+  }
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+<header>
+  <div class="header-inner">
+    <div class="header-title">
+      <div class="logo-badge">🛡</div>
+      <div>
+        <h1>Nessus <span>Security</span> Dashboard</h1>
+        <div class="subtitle">TARGET: METASPLOITABLE 3 &nbsp;·&nbsp; HOST: 192.168.56.115 &nbsp;·&nbsp; MANUEL CRUZ </div>
+      </div>
+    </div>
+    <div class="scan-meta">
+      <div class="meta-tag"><strong>Authenticated</strong> · 277 findings</div>
+      <div class="meta-tag"><strong>Unauthenticated</strong> · 90 findings</div>
+      <div class="meta-tag">Scan: May 2026</div>
+    </div>
+  </div>
+</header>
+
+<!-- TABS -->
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('auth')">🔐 Authenticated</button>
+  <button class="tab" onclick="switchTab('nonauth')">🌐 Unauthenticated</button>
+  <button class="tab" onclick="switchTab('compare')">⚖️ Compare Results</button>
+</div>
+
+<!-- =================== Authenticated =================== -->
+<div id="tab-auth">
+  <div class="section-label">Vulnerability Summary — Authenticated Scan</div>
+  <div class="kpi-grid">
+    <div class="kpi critical"><div class="kpi-num">15</div><div class="kpi-label">Critical</div></div>
+    <div class="kpi high"><div class="kpi-num">35</div><div class="kpi-label">High</div></div>
+    <div class="kpi medium"><div class="kpi-num">58</div><div class="kpi-label">Medium</div></div>
+    <div class="kpi low"><div class="kpi-num">8</div><div class="kpi-label">Low</div></div>
+    <div class="kpi info"><div class="kpi-num">161</div><div class="kpi-label">Info</div></div>
+    <div class="kpi total"><div class="kpi-num">277</div><div class="kpi-label">Total</div></div>
+  </div>
+
+  <div class="charts-row">
+    <div class="chart-card">
+      <h3>Vulnerabilities by Severity</h3>
+      <div class="donut-wrap">
+        <canvas id="donut-auth" style="max-width:160px;max-height:160px;"></canvas>
+        <div class="donut-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--critical)"></div>Critical<span class="legend-val">15</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--high)"></div>High<span class="legend-val">35</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--medium)"></div>Medium<span class="legend-val">58</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--low)"></div>Low<span class="legend-val">8</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--info)"></div>Info<span class="legend-val">161</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>Critical + High by Service</h3>
+      <canvas id="bar-auth-ports" style="max-height:180px;"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>CVSS 3.0 — Critical & High</h3>
+      <canvas id="scatter-auth" style="max-height:180px;"></canvas>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-header">
+      <h3>Critical Vulnerabilities &amp; High</h3>
+      <div class="filter-row">
+        <input class="search-box" type="text" placeholder="Pesquisar..." oninput="filterTable('auth', this.value)" id="search-auth">
+        <button class="filter-btn fcritical active" onclick="toggleFilter('auth','Critical',this)">CRITICAL</button>
+        <button class="filter-btn fhigh active" onclick="toggleFilter('auth','High',this)">HIGH</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table id="tbl-auth">
+        <thead><tr>
+          <th>Plugin ID</th><th>Severity</th><th>Name</th><th>CVE</th>
+          <th>Port</th><th>CVSS 3.0</th><th>Exploitable</th>
+        </tr></thead>
+        <tbody id="tbody-auth"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- =================== Unauthenticated =================== -->
+<div id="tab-nonauth" class="page-hidden">
+  <div class="section-label">Vulnerability Summary — Unauthenticated Scan</div>
+  <div class="kpi-grid">
+    <div class="kpi critical"><div class="kpi-num">3</div><div class="kpi-label">Critical</div></div>
+    <div class="kpi high"><div class="kpi-num">1</div><div class="kpi-label">High</div></div>
+    <div class="kpi medium"><div class="kpi-num">9</div><div class="kpi-label">Medium</div></div>
+    <div class="kpi low"><div class="kpi-num">4</div><div class="kpi-label">Low</div></div>
+    <div class="kpi info"><div class="kpi-num">73</div><div class="kpi-label">Info</div></div>
+    <div class="kpi total"><div class="kpi-num">90</div><div class="kpi-label">Total</div></div>
+  </div>
+
+  <div class="charts-row">
+    <div class="chart-card">
+      <h3>Vulnerabilities by Severity</h3>
+      <div class="donut-wrap">
+        <canvas id="donut-nonauth" style="max-width:160px;max-height:160px;"></canvas>
+        <div class="donut-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--critical)"></div>Critical<span class="legend-val">3</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--high)"></div>High<span class="legend-val">1</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--medium)"></div>Medium<span class="legend-val">9</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--low)"></div>Low<span class="legend-val">4</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:var(--info)"></div>Info<span class="legend-val">73</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="chart-card">
+      <h3>Vulnerabilities by Service</h3>
+      <canvas id="bar-nonauth-ports" style="max-height:180px;"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>Risk by Protocol/Port</h3>
+      <canvas id="bar-nonauth-risk" style="max-height:180px;"></canvas>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-header">
+      <h3>All Vulnerabilities — Unauthenticated</h3>
+      <div class="filter-row">
+        <input class="search-box" type="text" placeholder="Pesquisar..." oninput="filterTable('nonauth', this.value)" id="search-nonauth">
+        <button class="filter-btn fcritical active" onclick="toggleFilter('nonauth','Critical',this)">CRITICAL</button>
+        <button class="filter-btn fhigh active" onclick="toggleFilter('nonauth','High',this)">HIGH</button>
+      </div>
+    </div>
+    <div class="tbl-wrap">
+      <table id="tbl-nonauth">
+        <thead><tr>
+          <th>Plugin ID</th><th>Severity</th><th>Name</th><th>CVE</th>
+          <th>Port</th><th>CVSS 3.0</th><th>Exploitable</th>
+        </tr></thead>
+        <tbody id="tbody-nonauth"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- =================== COMPARAÇÃO =================== -->
+<div id="tab-compare" class="page-hidden">
+  <div class="section-label">Comparative Analysis — Authenticated vs. Unauthenticated</div>
+
+  <div class="comparison-row">
+    <div class="chart-card">
+      <h3>Severity Comparison</h3>
+      <canvas id="compare-bar" style="max-height:220px;"></canvas>
+    </div>
+    <div class="chart-card">
+      <h3>Discovery Delta by Authentication</h3>
+      <div style="margin-top:8px;">
+        <div class="compare-bar-row">
+          <div class="compare-label">Critical</div>
+          <div class="compare-bars">
+            <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--critical)"></div></div>
+            <div class="bar-label">Authenticated: 15</div>
+            <div class="bar-track"><div class="bar-fill" style="width:20%;background:rgba(255,59,92,0.4)"></div></div>
+            <div class="bar-label">Unauthenticated: 3</div>
+          </div>
+          <div class="compare-val"><span style="color:var(--critical)">15</span><span style="color:rgba(255,59,92,0.5)">3</span></div>
+        </div>
+        <div class="compare-bar-row">
+          <div class="compare-label">High</div>
+          <div class="compare-bars">
+            <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--high)"></div></div>
+            <div class="bar-label">Authenticated: 35</div>
+            <div class="bar-track"><div class="bar-fill" style="width:2.8%;background:rgba(255,124,56,0.4)"></div></div>
+            <div class="bar-label">Unauthenticated: 1</div>
+          </div>
+          <div class="compare-val"><span style="color:var(--high)">35</span><span style="color:rgba(255,124,56,0.5)">1</span></div>
+        </div>
+        <div class="compare-bar-row">
+          <div class="compare-label">Medium</div>
+          <div class="compare-bars">
+            <div class="bar-track"><div class="bar-fill" style="width:100%;background:var(--medium)"></div></div>
+            <div class="bar-label">Authenticated: 58</div>
+            <div class="bar-track"><div class="bar-fill" style="width:15.5%;background:rgba(255,197,66,0.4)"></div></div>
+            <div class="bar-label">Unauthenticated: 9</div>
+          </div>
+          <div class="compare-val"><span style="color:var(--medium)">58</span><span style="color:rgba(255,197,66,0.5)">9</span></div>
+        </div>
+      </div>
+
+      <div style="margin-top:24px; padding:16px; background:var(--surface2); border-radius:10px; border:1px solid var(--border);">
+        <div style="font-size:12px; font-weight:700; margin-bottom:10px;">📊 Analysis Conclusion</div>
+        <div style="font-size:11px; color:var(--muted); line-height:1.7;">
+          The authenticated scan revealed <strong style="color:var(--critical)">5× more critical vulnerabilities</strong> and <strong style="color:var(--high)">35× more high vulnerabilities</strong> than the unauthenticated scan.<br><br>
+          This demonstrates that the internal attack surface (post-compromise) is significantly larger, justifying the need for <strong style="color:var(--accent)">defense in depth</strong> rather than relying solely on perimeter security.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="chart-card" style="margin-bottom:32px;">
+    <h3>Common Vulnerabilities (Authenticated ∩ Unauthenticated)</h3>
+    <div id="common-vulns" style="margin-top:16px;"></div>
+  </div>
+</div>
+
+<footer>
+  NESSUS ESSENTIALS · METASPLOITABLE 3 · 192.168.56.115 · MANUEL CRUZ · AUTOMATICALLY GENERATED
+</footer>
+
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script>
+const AUTH_DATA = [{"scan_type": "Authenticated", "plugin_id": "182252", "name": "Apache Log4j SEoL (<= 1.x)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "", "description": "According to its version, Apache Log4j is less than or equal to 1.x. It is, therefore, no longer maintained by its vendor or provider. Lack of support implies that no new security patches for the product will be released by the vendor. As a result, it may contain security vulnerabilities.", "synopsis": "An unsupported version of Apache Log4j is installed on the remote host.", "solution": "Upgrade to a version of Apache Log4j that is currently supported.", "cvss_v3": "10.0", "cvss_v2": "10.0", "references": "https://logging.apache.org/log4j/1.2/ | http://www.nessus.org/u?5384dc7a", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "201408", "name": "Canonical Ubuntu Linux SEoL (14.04.x)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "", "description": "According to its version, Canonical Ubuntu Linux is 14.04.x. It is, therefore, no longer maintained by its vendor or provider. Lack of support implies that no new security patches for the product will be released by the vendor. As a result, it may contain security vulnerabilities.", "synopsis": "An unsupported version of Canonical Ubuntu Linux is installed on the remote host.", "solution": "Upgrade to a version of Canonical Ubuntu Linux that is currently supported.", "cvss_v3": "10.0", "cvss_v2": "10.0", "references": "http://www.nessus.org/u?5afc4199", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "92626", "name": "Drupal Coder Module Deserialization RCE", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "80", "cve": "", "description": "The version of Drupal running on the remote web server is affected by a remote code execution vulnerability in the Coder module, specifically in file coder_upgrade.run.php, due to improper validation of user-supplied input to the unserialize() function. An unauthenticated, remote attacker can exploit this, via a specially crafted request, to execute arbitrary PHP code.", "synopsis": "A PHP application running on the remote web server is affected by a remote code execution vulnerability.", "solution": "Upgrade the Coder module to version 7.x-1.3 / 7.x-2.6 or later. Alternatively, remove the entire Coder module directory from any publicly accessible website.", "cvss_v3": "", "cvss_v2": "10.0", "references": "XREF:EDB-ID:40149 | https://www.drupal.org/node/2765575 | https://www.drupal.org/project/coder", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "84215", "name": "ProFTPD mod_copy Information Disclosure", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "21", "cve": "CVE-2015-3306", "description": "The remote host is running a version of ProFTPD that is affected by an information disclosure vulnerability in the mod_copy module due to the SITE CPFR and SITE CPTO commands being available to unauthenticated clients. An unauthenticated, remote attacker can exploit this flaw to read and write to arbitrary files on any web accessible path on the host.", "synopsis": "The remote host is running a ProFTPD module that is affected by an information disclosure vulnerability.", "solution": "Upgrade to ProFTPD 1.3.5a / 1.3.6rc1 or later.", "cvss_v3": "9.8", "cvss_v2": "10.0", "references": "BID:74238 | XREF:EDB-ID:36742 | XREF:EDB-ID:36803 | http://bugs.proftpd.org/show_bug.cgi?id=4169 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2015-3306", "exploitable_with": "CANVAS,Metasploit"}, {"scan_type": "Authenticated", "plugin_id": "216780", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 24.10 : libxml2 vulnerabilities (USN-7302-1)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2022-49043, CVE-2024-34459, CVE-2024-56171, CVE-2025-24928, CVE-2025-27113", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 24.10 host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7302-1 advisory. It was discovered that libxml2 incorrectly handled certain memory operations. A remote attacker could use     this issue to cause libxml2 to crash, resulting in a denial of service, or possibly execute arbitrary     code. This issue only affected Ubuntu 14.04 LTS, Ubuntu 16.04 LTS, and Ubuntu 18.04 LTS. (CVE-2022-49043) It was discovered that the libxml2 xmllint tool incorrectly handled certain memory operations. If a user     or automated system were tricked into running xmllint on a specially crafted xml file, a remote attacker     could cause xmllint to crash, resulting in a denial of service. This issue only affected Ubuntu 14.04 LTS,     Ubuntu 16.04 LTS, and Ubuntu 18.04 LTS. (CVE-2024-34459) It was discovered that libxml2 did not properly manage memory. An attacker could possibly use this issue     to cause a denial of service or execute arbitrary code. (CVE-2024-56171) It was discovered that libxml2 could be made to write out of bounds. An attacker could possibly use this     issue to cause a denial of service or execute arbitrary code. (CVE-2025-24928) It was discovered that libxml2 could be made to dereference invalid memory. An attacker could possibly use     this issue to cause a denial of service. (CVE-2025-27113) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "9.8", "cvss_v2": "10.0", "references": "XREF:IAVA:2024-A-0067-S | XREF:USN:7302-1 | XREF:IAVA:2025-A-0123-S | https://ubuntu.com/security/notices/USN-7302-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2022-49043 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-34459 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-56171 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-24928 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-27113", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "207058", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS : Setuptools vulnerability (USN-7002-1)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-6345", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS host has packages installed that are affected by a vulnerability as referenced in the USN-7002-1 advisory. It was discovered that setuptools was vulnerable to remote code execution. An attacker could possibly use     this issue to execute arbitrary code. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "8.8", "cvss_v2": "10.0", "references": "XREF:USN:7002-1 | https://ubuntu.com/security/notices/USN-7002-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-6345", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "209121", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS : libarchive vulnerabilities (USN-7070-1)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2022-36227, CVE-2024-48957, CVE-2024-48958", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7070-1 advisory. It was discovered that libarchive mishandled certain memory checks, which could result in a NULL pointer     dereference. An attacker could potentially use this issue to cause a denial of service. This issue only     affected Ubuntu 14.04 LTS, Ubuntu 16.04 LTS, Ubuntu 18.04 LTS, Ubuntu 20.04 LTS and Ubuntu 22.04 LTS. (CVE-2022-36227) It was discovered that libarchive mishandled certain memory operations, which could result in an out-of-     bounds memory access. An attacker could potentially use this issue to cause a denial of service. This     issue only affected Ubuntu 22.04 LTS and Ubuntu 24.04 LTS. (CVE-2024-48957, CVE-2024-48958) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "9.8", "cvss_v2": "10.0", "references": "XREF:USN:7070-1 | XREF:IAVB:2024-B-0154-S | https://ubuntu.com/security/notices/USN-7070-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2022-36227 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-48957 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-48958", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "214143", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS : rsync vulnerabilities (USN-7206-1)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-12084, CVE-2024-12085, CVE-2024-12086, CVE-2024-12087, CVE-2024-12088, CVE-2024-12747", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS host has a package installed that is affected by multiple vulnerabilities as referenced in the USN-7206-1 advisory. Simon Scannell, Pedro Gallegos, and Jasiel Spelman discovered that rsync did not properly handle checksum     lengths. An attacker could use this issue to execute arbitrary code. (CVE-2024-12084) Simon Scannell, Pedro Gallegos, and Jasiel Spelman discovered that rsync compared checksums with     uninitialized memory. An attacker could exploit this issue to leak sensitive information. (CVE-2024-12085) Simon Scannell, Pedro Gallegos, and Jasiel Spelman discovered that rsync incorrectly handled file     checksums. A malicious server could use this to expose arbitrary client files. (CVE-2024-12086) Simon Scannell, Pedro Gallegos, and Jasiel Spelman discovered that rsync mishandled symlinks for some     settings. An attacker could exploit this to write files outside the intended directory. (CVE-2024-12087) Simon Scannell, Pedro Gallegos, and Jasiel Spelman discovered that rsync failed to verify symbolic link     destinations for some settings. An attacker could exploit this for path traversal attacks. (CVE-2024-12088) Aleksei Gorban discovered a race condition in rsync's handling of symbolic links. An attacker could use     this to access sensitive information or escalate privileges. (CVE-2024-12747) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected rsync package.", "cvss_v3": "7.5", "cvss_v2": "10.0", "references": "XREF:USN:7206-1 | https://ubuntu.com/security/notices/USN-7206-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-12084 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-12085 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-12086 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-12087 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-12088 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-12747", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "207059", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 24.04 LTS : Expat vulnerabilities (USN-7000-1)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-45490, CVE-2024-45491, CVE-2024-45492", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 24.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7000-1 advisory. Shang-Hung Wan discovered that Expat did not properly handle certain function calls when a negative input     length was provided. An attacker could use this issue to cause a denial of service or possibly execute     arbitrary code. (CVE-2024-45490) Shang-Hung Wan discovered that Expat did not properly handle the potential for an integer overflow on     32-bit platforms. An attacker could use this issue to cause a denial of service or possibly execute     arbitrary code. (CVE-2024-45491, CVE-2024-45492) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "9.8", "cvss_v2": "10.0", "references": "XREF:USN:7000-1 | XREF:IAVA:2024-A-0543-S | https://ubuntu.com/security/notices/USN-7000-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-45490 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-45491 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-45492", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "243224", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS : SQLite vulnerabilities (USN-7679-1)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2025-6965, CVE-2025-29088", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7679-1 advisory. It was discovered that SQLite incorrectly handled aggregate terms. An attacker could use this issue to     cause SQLite to crash, resulting in a denial of service, or possibly execute arbitrary code. (CVE-2025-6965) It was discovered that SQLite incorrectly handled certain argument values to sqlite3_db_config(). An     attacker could use this issue to cause SQLite to crash, resulting in a denial of service, or possibly     execute arbitrary code. This update fixes the issue in Ubuntu 14.04 LTS, Ubuntu 16.04 LTS, and Ubuntu     18.04 LTS. This issue was previously fixed in Ubuntu 20.04 LTS via USN-7528-1. (CVE-2025-29088) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "9.8", "cvss_v2": "10.0", "references": "XREF:IAVA:2025-A-0288-S | XREF:USN:7679-1 | XREF:IAVA:2025-A-0529-S | https://ubuntu.com/security/notices/USN-7679-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-6965 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-29088", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "240197", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS : Samba vulnerabilities (USN-7582-1)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2022-3437, CVE-2022-42898, CVE-2022-45141, CVE-2023-34966", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7582-1 advisory. Evgeny Legerov discovered that Samba incorrectly handled buffers in certain GSSAPI routines of Heimdal. A     remote attacker could possibly use this issue to cause Samba to crash, resulting in a denial of service. (CVE-2022-3437) Greg Hudson discovered that Samba incorrectly handled PAC parsing. On 32-bit systems, a remote attacker     could use this issue to escalate privileges, or possibly execute arbitrary code. (CVE-2022-42898) Joseph Sutton discovered that Samba could be forced to issue rc4-hmac encrypted Kerberos tickets. A remote     attacker could possibly use this issue to escalate privileges. This issue only affected Ubuntu 20.04 LTS     and Ubuntu 22.04 LTS. (CVE-2022-45141) Florent Saudel discovered that Samba incorrectly handled certain Spotlight requests. A remote attacker     could possibly use this issue to cause Samba to consume resources, leading to a denial of service. (CVE-2023-34966) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "9.8", "cvss_v2": "10.0", "references": "XREF:IAVA:2022-A-0447-S | XREF:IAVA:2022-A-0495-S | XREF:IAVA:2023-A-0004-S | XREF:IAVA:2023-A-0376-S | XREF:USN:7582-1 | https://ubuntu.com/security/notices/USN-7582-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2022-3437 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2022-42898 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2022-45141 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-34966", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "207374", "name": "Ubuntu 14.04 LTS : OpenSSL vulnerabilities (USN-7018-1)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2020-1968, CVE-2021-23840, CVE-2022-1292, CVE-2022-2068, CVE-2023-3446, CVE-2024-0727", "description": "The remote Ubuntu 14.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7018-1 advisory. Robert Merget, Marcus Brinkmann, Nimrod Aviram, and Juraj Somorovsky discovered that certain Diffie-     Hellman ciphersuites in the TLS specification and implemented by OpenSSL contained a flaw. A remote     attacker could possibly use this issue to eavesdrop on encrypted communications. This was fixed in this     update by removing the insecure ciphersuites from OpenSSL. (CVE-2020-1968) Paul Kehrer discovered that OpenSSL incorrectly handled certain input lengths in EVP functions. A remote     attacker could possibly use this issue to cause OpenSSL to crash, resulting in a denial of service. (CVE-2021-23840) Elison Niven discovered that OpenSSL incorrectly handled the c_rehash script. A local attacker could     possibly use this issue to execute arbitrary commands when c_rehash is run. (CVE-2022-1292) Chancen and Daniel Fiala discovered that OpenSSL incorrectly handled the c_rehash script. A local attacker     could possibly use this issue to execute arbitrary commands when c_rehash is run. (CVE-2022-2068) It was discovered that OpenSSL incorrectly handled excessively large Diffie-Hellman parameters. An     attacker could possibly use this issue to cause a denial of service. (CVE-2023-3446) Bahaa Naamneh discovered that OpenSSL incorrectly handled certain malformed PKCS12 files. A remote     attacker could possibly use this issue to cause OpenSSL to crash, resulting in a denial of service. (CVE-2024-0727) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected libssl-dev, libssl1.0.0 and / or openssl packages.", "cvss_v3": "7.3", "cvss_v2": "10.0", "references": "XREF:IAVA:2020-A-0186-S | XREF:IAVA:2021-A-0103-S | XREF:IAVA:2023-A-0398-S | XREF:IAVA:2024-A-0121-S | XREF:USN:7018-1 | XREF:CEA-ID:CEA-2021-0004 | XREF:IAVA:2022-A-0186-S | XREF:IAVA:2022-A-0257-S | https://ubuntu.com/security/notices/USN-7018-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2020-1968 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2021-23840 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2022-1292 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2022-2068 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-3446 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-0727", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "213194", "name": "Ubuntu 14.04 LTS : libvpx vulnerability (USN-7172-1)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2023-5217", "description": "The remote Ubuntu 14.04 LTS host has packages installed that are affected by a vulnerability as referenced in the USN-7172-1 advisory. It was discovered that libvpx did not properly handle certain malformed media files. If an application     using libvpx opened a specially crafted file, a remote attacker could cause a denial of service, or     possibly execute arbitrary code. Ubuntu 22.04 LTS, Ubuntu 20.04 LTS, Ubuntu 18.04 LTS, and Ubuntu 16.04     LTS were previously addressed in USN-6403-1, USN-6403-2, and USN-6403-3. This update addresses the issue     in Ubuntu 14.04 LTS. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected libvpx-dev, libvpx1 and / or vpx-tools packages.", "cvss_v3": "8.8", "cvss_v2": "10.0", "references": "XREF:CISA-KNOWN-EXPLOITED:2023/10/23 | XREF:USN:7172-1 | https://ubuntu.com/security/notices/USN-7172-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-5217", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "210914", "name": "Ubuntu 14.04 LTS : zlib vulnerability (USN-7107-1)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2023-45853", "description": "The remote Ubuntu 14.04 LTS host has packages installed that are affected by a vulnerability as referenced in the USN-7107-1 advisory. It was discovered that Minizip in zlib incorrectly handled certain zip header fields. An attacker could     possibly use this issue to cause a denial of service, or execute arbitrary code. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "9.8", "cvss_v2": "10.0", "references": "XREF:USN:7107-1 | https://ubuntu.com/security/notices/USN-7107-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-45853", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "46882", "name": "UnrealIRCd Backdoor Detection", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "6697", "cve": "CVE-2010-2075", "description": "The remote IRC server is a version of UnrealIRCd with a backdoor that allows an attacker to execute arbitrary code on the affected host.", "synopsis": "The remote IRC server contains a backdoor.", "solution": "Re-download the software, verify it using the published MD5 / SHA1 checksums, and re-install it.", "cvss_v3": "", "cvss_v2": "10.0", "references": "BID:40820 | https://seclists.org/fulldisclosure/2010/Jun/277 | https://seclists.org/fulldisclosure/2010/Jun/284 | http://www.unrealircd.com/txt/unrealsecadvisory.20100612.txt | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2010-2075", "exploitable_with": "CANVAS,Metasploit"}, {"scan_type": "Authenticated", "plugin_id": "156860", "name": "Apache Log4j 1.x Multiple Vulnerabilities", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2019-17571, CVE-2020-9488, CVE-2022-23302, CVE-2022-23305, CVE-2022-23307, CVE-2023-26464", "description": "According to its self-reported version number, the installation of Apache Log4j on the remote host is 1.x and is no longer supported. Log4j reached its end of life prior to 2016. Additionally, Log4j 1.x is affected by multiple vulnerabilities, including : - Log4j includes a SocketServer that accepts serialized log events and deserializes them without verifying whether     the objects are allowed or not. This can provide an attack vector that can be exploited. (CVE-2019-17571) - Improper validation of certificate with host mismatch in Apache Log4j SMTP appender. This could allow an SMTPS     connection to be intercepted by a man-in-the-middle attack which could leak any log messages sent through that     appender. (CVE-2020-9488) - JMSSink uses JNDI in an unprotected manner allowing any application using the JMSSink to be vulnerable if it is     configured to reference an untrusted site or if the site referenced can be accesseed by the attacker. (CVE-2022-23302) Lack of support implies that no new security patches for the product will be released by the vendor. As a result, it is likely to contain security vulnerabilities.", "synopsis": "A logging library running on the remote host has multiple vulnerabilities.", "solution": "Upgrade to a version of Apache Log4j that is currently supported. Upgrading to the latest versions for Apache Log4j is highly recommended as intermediate versions / patches have known high severity vulnerabilities and the vendor is updating their advisories often as new research and knowledge about the impact of Log4j is discovered. Refer to https://logging.apache.org/log4j/2.x/security.html for the latest versions.", "cvss_v3": "9.8", "cvss_v2": "9.0", "references": "XREF:CEA-ID:CEA-2021-0004 | XREF:CEA-ID:CEA-2021-0025 | XREF:IAVA:2021-A-0573-S | https://logging.apache.org/log4j/1.2/ | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2019-17571 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2020-9488 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2022-23302 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2022-23305 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2022-23307 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-26464", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "78515", "name": "Drupal Database Abstraction API SQLi", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "80", "cve": "CVE-2014-3704", "description": "The remote web server is running a version of Drupal that is affected by a SQL injection vulnerability due to a flaw in the Drupal database abstraction API, which allows a remote attacker to use specially crafted requests that can result in arbitrary SQL execution. This may lead to privilege escalation, arbitrary PHP execution, or remote code execution.", "synopsis": "The remote web server is running a PHP application that is affected by a SQL injection vulnerability.", "solution": "Upgrade to version 7.32 or later.", "cvss_v3": "", "cvss_v2": "7.5", "references": "BID:70595 | XREF:EDB-ID:34984 | XREF:EDB-ID:34992 | XREF:EDB-ID:34993 | XREF:EDB-ID:35150 | https://www.drupal.org/SA-CORE-2014-005 | https://www.drupal.org/project/drupal/releases/7.32 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-3704", "exploitable_with": "CANVAS,Core Impact,Metasploit"}, {"scan_type": "Authenticated", "plugin_id": "146799", "name": "Linux Sudo Privilege Escalation (Out-of-bounds Write)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2021-3156", "description": "Sudo before 1.9.5p2 has a Heap-based Buffer Overflow, allowing privilege escalation to root via 'sudoedit -s' and a command-line argument that ends with a single backslash character.", "synopsis": "The remote Linux distribution host is missing a security-related update.", "solution": "n/a.", "cvss_v3": "7.8", "cvss_v2": "7.2", "references": "XREF:CISA-KNOWN-EXPLOITED:2022/04/27 | https://www.sudo.ws/alerts/unescape_overflow.html | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2021-3156", "exploitable_with": "CANVAS,Core Impact,Metasploit"}, {"scan_type": "Authenticated", "plugin_id": "194474", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 23.10 / 24.04 LTS. : less vulnerability (USN-6756-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-32487", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 23.10 / 24.04 LTS. host has a package installed that is affected by a vulnerability as referenced in the USN-6756-1 advisory. It was discovered that less mishandled newline characters in file names. If a user or automated system     were tricked into opening specially crafted files, an attacker could possibly use this issue to execute     arbitrary commands on the host. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected less package.", "cvss_v3": "8.6", "cvss_v2": "7.2", "references": "XREF:USN:6756-1 | https://ubuntu.com/security/notices/USN-6756-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-32487", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "192219", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 23.10 : Vim vulnerability (USN-6698-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-22667", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 23.10 host has packages installed that are affected by a vulnerability as referenced in the USN-6698-1 advisory. Zhen Zhou discovered that Vim did not properly manage memory. An attacker could possibly use this issue to     cause a denial of service Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "7.8", "cvss_v2": "7.2", "references": "XREF:USN:6698-1 | https://ubuntu.com/security/notices/USN-6698-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-22667", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "193362", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 23.10 : klibc vulnerabilities (USN-6736-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2016-9840, CVE-2016-9841, CVE-2018-25032, CVE-2022-37434", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 23.10 host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-6736-1 advisory. It was discovered that zlib, vendored in klibc, incorrectly handled pointer arithmetic. An attacker could     use this issue to cause klibc to crash or to possibly execute arbitrary code. (CVE-2016-9840,     CVE-2016-9841) Danilo Ramos discovered that zlib, vendored in klibc, incorrectly handled memory when performing certain     deflating operations. An attacker could use this issue to cause klibc to crash or to possibly execute     arbitrary code. (CVE-2018-25032) Evgeny Legerov discovered that zlib, vendored in klibc, incorrectly handled memory when performing certain     inflate operations. An attacker could use this issue to cause klibc to crash or to possibly execute     arbitrary code. (CVE-2022-37434) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected klibc-utils, libklibc and / or libklibc-dev packages.", "cvss_v3": "9.8", "cvss_v2": "7.5", "references": "XREF:USN:6736-1 | https://ubuntu.com/security/notices/USN-6736-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2016-9840 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2016-9841 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2018-25032 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2022-37434", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "237449", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 24.10 / 25.04 : Setuptools vulnerability (USN-7544-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2025-47273", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 24.10 / 25.04 host has packages installed that are affected by a vulnerability as referenced in the USN-7544-1 advisory. It was discovered that setuptools did not properly sanitize paths. An attacker could possibly use this     issue to write files to arbitrary locations on the filesystem. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "7.5", "cvss_v2": "7.8", "references": "XREF:USN:7544-1 | https://ubuntu.com/security/notices/USN-7544-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-47273", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "214997", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 24.10 : Kerberos vulnerability (USN-7257-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-3596", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 24.10 host has packages installed that are affected by a vulnerability as referenced in the USN-7257-1 advisory. Goldberg, Miro Haller, Nadia Heninger, Mike Milano, Dan Shumow, Marc Stevens, and Adam Suhl discovered     that Kerberos incorrectly authenticated certain responses. An attacker able to intercept communications     between a RADIUS client and server could possibly use this issue to forge responses, bypass     authentication, and access network devices and services. This update introduces support for the Message-Authenticator attribute in non-EAP authentication methods     for communications between Kerberos and a RADIUS server. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "9.0", "cvss_v2": "7.6", "references": "XREF:USN:7257-1 | https://ubuntu.com/security/notices/USN-7257-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-3596", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "276991", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.04 / 25.10 : GNU binutils vulnerabilities (USN-7899-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2025-0840, CVE-2025-1153, CVE-2025-1181, CVE-2025-1182, CVE-2025-3198, CVE-2025-5244, CVE-2025-5245, CVE-2025-7545, CVE-2025-8225, CVE-2025-11839, CVE-2025-11840", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.04 / 25.10 host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7899-1 advisory. It was discovered that GNU binutils could be forced to perform an out- of-bounds read in certain     instances. An attacker with local access to a system could possibly use this issue to cause a denial of     service. (CVE-2025-11839, CVE-2025-11840) It was discovered that GNU binutils incorrectly handled certain inputs. An attacker could possibly use     this issue to cause a denial of service. This issue only affected Ubuntu 14.04 LTS, Ubuntu 16.04 LTS,     Ubuntu 18.04 LTS, and Ubuntu 20.04 LTS. (CVE-2025-8225) It was discovered that GNU binutils incorrectly handled certain inputs. An attacker could possibly use     this issue to cause a crash or execute arbitrary code. This issue only affected Ubuntu 14.04 LTS, Ubuntu     16.04 LTS, Ubuntu 18.04 LTS, and Ubuntu 20.04 LTS. (CVE-2025-5244, CVE-2025-5245) It was discovered that GNU binutils incorrectly handled certain inputs. An attacker could possibly use     this issue to cause a denial of service. This issue only affected Ubuntu 18.04 LTS and Ubuntu 20.04 LTS. (CVE-2025-3198) It was discovered that GNU binutils incorrectly handled certain files. An attacker could possibly use this     issue to cause a crash. This issue only affected Ubuntu 14.04 LTS, Ubuntu 16.04 LTS, and Ubuntu 18.04 LTS. (CVE-2025-1182) It was discovered that ld in GNU binutils incorrectly handled certain files. An attacker could possibly     use this issue to cause a crash, expose sensitive information or execute arbitrary code. This issue only     affected Ubuntu 16.04 LTS, Ubuntu 18.04 LTS, and Ubuntu 20.04 LTS. (CVE-2025-1181) It was discovered that GNU binutils incorrectly handled certain inputs. An attacker could possibly use     this issue to cause a crash, expose sensitive information or execute arbitrary code. This issue only     affected Ubuntu 25.04. (CVE-2025-1153) It was discovered that GNU binutils incorrectly handled certain inputs. An attacker could possibly use     this issue to cause a crash or execute arbitrary code. This issue only affected Ubuntu 14.04 LTS. (CVE-2025-0840) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "7.8", "cvss_v2": "7.6", "references": "XREF:IAVA:2025-A-0095-S | XREF:USN:7899-1 | XREF:IAVA:2025-A-0809-S | XREF:IAVA:2025-A-0890-S | https://ubuntu.com/security/notices/USN-7899-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-0840 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-1153 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-1181 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-1182 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-3198 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-5244 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-5245 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-7545 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-8225 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-11839 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-11840", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "288869", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.04 / 25.10 : klibc vulnerabilities (USN-7959-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2016-9843", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.04 / 25.10 host has packages installed that are affected by a vulnerability as referenced in the USN-7959-1 advisory. It was discovered that zlib, vendored in klibc, did not properly handle integer arithmetic. An attacker     could possibly use this issue to execute arbitrary code or cause a denial of service. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected klibc-utils, libklibc and / or libklibc-dev packages.", "cvss_v3": "9.8", "cvss_v2": "7.5", "references": "XREF:USN:7959-1 | https://ubuntu.com/security/notices/USN-7959-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2016-9843", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "282467", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.04 : Libxslt vulnerability (USN-7945-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2025-7424", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.04 host has packages installed that are affected by a vulnerability as referenced in the USN-7945-1 advisory. Ivan Fratric discovered that Libxslt was vulnerable to type confusion when performing XML transformations. An attacker could possibly use this issue to cause Libxslt to crash or corrupt memory, causing a denial of     service or undefined behavior. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "7.5", "cvss_v2": "7.8", "references": "XREF:USN:7945-1 | https://ubuntu.com/security/notices/USN-7945-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-7424", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "266334", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.04 : OpenSSL vulnerabilities (USN-7786-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2025-9230, CVE-2025-9231, CVE-2025-9232", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.04 host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7786-1 advisory. Stanislav Fort discovered that OpenSSL incorrectly handled memory when trying to decrypt CMS messages     encrypted with password-based encryption. An attacker could possibly use this issue to cause a denial of     service or execute arbitrary code. (CVE-2025-9230) Stanislav Fort discovered that OpenSSL had a timing side-channel in SM2 signature computations on ARM     platforms. A remote attacker could possibly use this issue to recover private data. This issue only     affected Ubuntu 25.04. (CVE-2025-9231) Stanislav Fort discovered that OpenSSL incorrectly handled memory during HTTP requests when no_proxy     environment variable is set. An attacker could possibly use this issue to cause a denial of service. This     issue only affected Ubuntu 25.04. (CVE-2025-9232) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "6.5", "cvss_v2": "7.1", "references": "XREF:USN:7786-1 | XREF:IAVA:2025-A-0716-S | https://ubuntu.com/security/notices/USN-7786-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-9230 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-9231 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-9232", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "254434", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.04 : Python vulnerabilities (USN-7710-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2025-6069, CVE-2025-8194", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.04 host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7710-1 advisory. It was discovered that Python inefficiently parsed maliciously crafted HTML input. An attacker could     possibly use this issue to cause a denial of service. (CVE-2025-6069) It was discovered that Python incorrectly parsed maliciously crafted Tar archives. An attacker could     possibly use this issue to cause a denial of service. (CVE-2025-8194) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "7.5", "cvss_v2": "7.8", "references": "XREF:USN:7710-1 | XREF:IAVA:2026-A-0142 | https://ubuntu.com/security/notices/USN-7710-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-6069 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-8194", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "294829", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.10 : Avahi vulnerabilities (USN-7967-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2025-68276, CVE-2025-68468, CVE-2025-68471", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.10 host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7967-1 advisory. It was discovered that Avahi incorrectly terminated when processing browser records with wide-area     disabled. An attacker could possibly use this issue to cause Avahi to crash, resulting in a denial of     service. (CVE-2025-68276) It was discovered that Avahi incorrectly terminated when processing unsolicited CNAME records pointing to     resource records with short TTLs. An attacker could possibly use this issue to cause Avahi to crash,     resulting in a denial of service. (CVE-2025-68468) It was discovered that Avahi incorrectly terminated when processing unsolicited CNAME records in quick     succession. An attacker could possibly use this issue to cause Avahi to crash, resulting in a denial of     service. (CVE-2025-68471) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "6.5", "cvss_v2": "7.8", "references": "XREF:USN:7967-1 | https://ubuntu.com/security/notices/USN-7967-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-68276 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-68468 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-68471", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "303027", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.10 : Vim vulnerabilities (USN-8101-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2026-25749, CVE-2026-26269, CVE-2026-28417, CVE-2026-28418, CVE-2026-28419, CVE-2026-28420, CVE-2026-28421, CVE-2026-28422", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS / 25.10 host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-8101-1 advisory. Rahul Hoysala discovered that Vim did not correctly handle certain tag resolutions. An attacker could     possibly use this issue to cause a denial of service. (CVE-2026-25749) It was discovered that Vim did not correctly handle processing certain specialKey commands. An attacker     could possibly use this issue to cause a denial of service or execute arbitrary code. (CVE-2026-26269) Kim Dong Han discovered that Vim did not correctly handle opening certain URLs. If a user or system were     tricked into opening a specially crafted file, an attacker could possibly use this issue to execute     arbitrary code. (CVE-2026-28417) Kim Dong Han discovered that Vim did not correctly handle parsing Emacs-style tag files. An attacker could     possibly use this issue to cause a denial of service. (CVE-2026-28418, CVE-2026-28419) Kim Dong Han discovered that Vim did not correctly handle processing maximum combining characters from     Unicode supplementary planes. An attacker could possibly use this issue to cause a denial of service or     execute arbitrary code. This issue only affected Ubuntu 18.04 LTS, Ubuntu 20.04 LTS, Ubuntu 22.04 LTS,     Ubuntu 24.04 LTS and Ubuntu 25.10. (CVE-2026-28420) Kim Dong Han discovered that Vim did not correctly handle swap file recovery. An attacker could possibly     use this issue to cause a denial of service or execute arbitrary code. (CVE-2026-28421) Kim Dong Han discovered that Vim did not correctly handle rendering status lines. An attacker could     possibly use this issue to cause a denial of service or execute arbitrary code. (CVE-2026-28422) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "7.8", "cvss_v2": "7.6", "references": "XREF:IAVA:2026-A-0138-S | XREF:IAVA:2026-A-0173-S | XREF:IAVA:2026-A-0195 | XREF:USN:8101-1 | https://ubuntu.com/security/notices/USN-8101-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2026-25749 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2026-26269 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2026-28417 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2026-28418 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2026-28419 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2026-28420 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2026-28421 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2026-28422", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "205195", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS : Kerberos vulnerabilities (USN-6947-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-37370, CVE-2024-37371", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS / 24.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-6947-1 advisory. It was discovered that Kerberos incorrectly handled GSS message tokens where an unwrapped token could     appear to be truncated. An attacker could possibly use this issue to cause a denial of service. (CVE-2024-37370) It was discovered that Kerberos incorrectly handled GSS message tokens when sent a token with invalid     length fields. An attacker could possibly use this issue to cause a denial of service. (CVE-2024-37371) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "9.1", "cvss_v2": "9.4", "references": "XREF:USN:6947-1 | https://ubuntu.com/security/notices/USN-6947-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-37370 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-37371", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "211587", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS : Python vulnerabilities (USN-7015-5)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-6232, CVE-2024-6923", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7015-5 advisory. USN-7015-1 fixed several vulnerabilities in Python. This update provides the corresponding update for     CVE-2024-6232 and CVE-2024-6923 for python2.7 in Ubuntu 14.04 LTS, Ubuntu 16.04 LTS, Ubuntu 18.04 LTS,     Ubuntu 20.04 LTS and Ubuntu 22.04 LTS. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "7.5", "cvss_v2": "7.8", "references": "XREF:USN:7015-5 | https://ubuntu.com/security/notices/USN-7015-5 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-6232 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-6923", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "241065", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS : libxslt vulnerability (USN-7600-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2023-40403", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 22.04 LTS host has packages installed that are affected by a vulnerability as referenced in the USN-7600-1 advisory. It was discovered that libxslt could be made to expose sensitive information about address space layout. An attacker could possibly use this issue to bypass Address Space Layout Randomization (ASLR) protections. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "6.5", "cvss_v2": "7.8", "references": "XREF:USN:7600-1 | https://ubuntu.com/security/notices/USN-7600-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-40403", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "190713", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 23.10 : LibTIFF vulnerabilities (USN-6644-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2023-6228, CVE-2023-6277, CVE-2023-52356", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS / 20.04 LTS / 23.10 host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-6644-1 advisory. It was discovered that LibTIFF incorrectly handled certain files. If a user were tricked into opening a     specially crafted file, an attacker could possibly use this issue to cause the application to crash,     resulting in a denial of service. (CVE-2023-52356) It was discovered that LibTIFF incorrectly handled certain image files with the tiffcp utility. If a user     were tricked into opening a specially crafted image file, an attacker could possibly use this issue to     cause tiffcp to crash, resulting in a denial of service. (CVE-2023-6228) It was discovered that LibTIFF incorrectly handled certain files. If a user were tricked into opening a     specially crafted file, an attacker could possibly use this issue to cause the application to consume     resources, resulting in a denial of service. (CVE-2023-6277) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "7.5", "cvss_v2": "7.8", "references": "XREF:USN:6644-1 | https://ubuntu.com/security/notices/USN-6644-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-6228 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-6277 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-52356", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "193082", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS : Bind vulnerabilities (USN-6723-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2023-50387, CVE-2023-50868", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-6723-1 advisory. Elias Heftrig, Haya Schulmann, Niklas Vogel, and Michael Waidner discovered that Bind icorrectly handled     validating DNSSEC messages. A remote attacker could possibly use this issue to cause Bind to consume     resources, leading to a denial of service. (CVE-2023-50387) It was discovered that Bind incorrectly handled preparing an NSEC3 closest encloser proof. A remote     attacker could possibly use this issue to cause Bind to consume resources, leading to a denial of service. (CVE-2023-50868) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "7.5", "cvss_v2": "7.8", "references": "XREF:USN:6723-1 | XREF:IAVA:2024-A-0103-S | https://ubuntu.com/security/notices/USN-6723-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-50387 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-50868", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "194950", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS : GNU C Library vulnerabilities (USN-6762-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2014-9984, CVE-2015-20109, CVE-2018-11236, CVE-2021-3999, CVE-2024-2961", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-6762-1 advisory. It was discovered that GNU C Library incorrectly handled netgroup requests. An attacker could possibly use     this issue to cause a crash or execute arbitrary code. This issue only affected Ubuntu 14.04 LTS. (CVE-2014-9984) It was discovered that GNU C Library might allow context-dependent attackers to cause a denial of service. This issue only affected Ubuntu 14.04 LTS. (CVE-2015-20109) It was discovered that GNU C Library when processing very long pathname arguments to the realpath     function, could encounter an integer overflow on 32-bit architectures, leading to a stack-based buffer     overflow and, potentially, arbitrary code execution. This issue only affected Ubuntu 14.04 LTS. (CVE-2018-11236) It was discovered that the GNU C library getcwd function incorrectly handled buffers. An attacker could     use this issue to cause the GNU C Library to crash, resulting in a denial of service, or possibly execute     arbitrary code. This issue only affected Ubuntu 14.04 LTS. (CVE-2021-3999) Charles Fol discovered that the GNU C Library iconv feature incorrectly handled certain input sequences. An attacker could use this issue to cause the GNU C Library to crash, resulting in a denial of service, or     possibly execute arbitrary code. (CVE-2024-2961) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "9.8", "cvss_v2": "7.5", "references": "XREF:USN:6762-1 | https://ubuntu.com/security/notices/USN-6762-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-9984 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2015-20109 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2018-11236 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2021-3999 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-2961", "exploitable_with": "Core Impact,Metasploit"}, {"scan_type": "Authenticated", "plugin_id": "266395", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS : Libxslt vulnerabilities (USN-7787-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-55549, CVE-2025-24855", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7787-1 advisory. Ivan Fratric discovered that Libxslt did not correctly handle certain memory operations. An attacker could     possibly use this issue to execute arbitrary code or cause a denial of service. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "7.8", "cvss_v2": "7.6", "references": "XREF:USN:7787-1 | https://ubuntu.com/security/notices/USN-7787-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-55549 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-24855", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "206015", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS : curl vulnerability (USN-6944-2)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-7264", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS host has packages installed that are affected by a vulnerability as referenced in the USN-6944-2 advisory. USN-6944-1 fixed CVE-2024-7264 for Ubuntu 20.04 LTS, Ubuntu 22.04 LTS, and Ubuntu 24.04 LTS. This update     provides the corresponding fix for Ubuntu 14.04 LTS, Ubuntu 16.04 LTS, and Ubuntu 18.04 LTS. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "6.5", "cvss_v2": "7.8", "references": "XREF:USN:6944-2 | XREF:IAVA:2024-A-0457-S | https://ubuntu.com/security/notices/USN-6944-2 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-7264", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "214908", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS : libvpx vulnerability (USN-7249-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-5197", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS host has packages installed that are affected by a vulnerability as referenced in the USN-7249-1 advisory. Xiantong Hou discovered that libvpx would overflow when attempting to allocate memory for very large     images. If an application using libvpx opened a specially crafted file, a remote attacker could possibly     use this issue to cause the application to crash, resulting in a denial of service, or the execution of     arbitrary code. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "9.1", "cvss_v2": "9.4", "references": "XREF:USN:7249-1 | https://ubuntu.com/security/notices/USN-7249-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-5197", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "191794", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS : libxml2 vulnerability (USN-6658-2)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-25062", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS host has packages installed that are affected by a vulnerability as referenced in the USN-6658-2 advisory. USN-6658-1 fixed a vulnerability in libxml2. This update provides the corresponding updates for Ubuntu     14.04 LTS, Ubuntu 16.04 LTS, and Ubuntu 18.04 LTS. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "7.5", "cvss_v2": "7.8", "references": "XREF:USN:6658-2 | XREF:IAVA:2024-A-0067-S | https://ubuntu.com/security/notices/USN-6658-2 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-25062", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "191736", "name": "Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS : ncurses vulnerability (USN-6684-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2023-50495", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS / 18.04 LTS host has packages installed that are affected by a vulnerability as referenced in the USN-6684-1 advisory. It was discovered that ncurses incorrectly handled certain function return values, possibly leading to     segmentation fault. A local attacker could possibly use this to cause a denial of service (system crash). Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "6.5", "cvss_v2": "7.8", "references": "XREF:USN:6684-1 | https://ubuntu.com/security/notices/USN-6684-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2023-50495", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "302209", "name": "Ubuntu 14.04 LTS / 16.04 LTS : libpng vulnerabilities (USN-8081-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2025-64505, CVE-2026-25646", "description": "The remote Ubuntu 14.04 LTS / 16.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-8081-1 advisory. It was discovered that libpng did not properly handle memory when processing certain PNG files. An     attacker could possibly use this issue to cause libpng to crash, resulting in a denial of service, or     disclose sensitive information. (CVE-2025-64505) Joshua Inscoe discovered that libpng did not properly handle memory when processing certain PNG files. An     attacker could possibly use this issue to cause libpng to crash, resulting in a denial of service,     disclose sensitive information, or execute arbitrary code. (CVE-2026-25646) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected libpng12-0, libpng12-dev and / or libpng3 packages.", "cvss_v3": "8.1", "cvss_v2": "7.6", "references": "XREF:IAVA:2026-A-0135 | XREF:USN:8081-1 | https://ubuntu.com/security/notices/USN-8081-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-64505 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2026-25646", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "208958", "name": "Ubuntu 14.04 LTS / 18.04 LTS : PostgreSQL vulnerability (USN-6968-3)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-7348", "description": "The remote Ubuntu 14.04 LTS / 18.04 LTS host has packages installed that are affected by a vulnerability as referenced in the USN-6968-3 advisory. USN-6968-1 fixed CVE-2024-7348 in PostgreSQL-12, PostgreSQL-14, and PostgreSQL-16. This update provides the corresponding updates for PostgreSQL-9.3 in Ubuntu 14.04 LTS and PostgreSQL-10 in     Ubuntu 18.04 LTS. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "7.5", "cvss_v2": "7.1", "references": "XREF:USN:6968-3 | https://ubuntu.com/security/notices/USN-6968-3 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-7348", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "206998", "name": "Ubuntu 14.04 LTS : LibTIFF vulnerability (USN-6997-2)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2024-7006", "description": "The remote Ubuntu 14.04 LTS host has packages installed that are affected by a vulnerability as referenced in the USN-6997-2 advisory. USN-6997-1 fixed a vulnerability in LibTIFF. This update provides the corresponding update for Ubuntu     14.04 LTS. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "7.5", "cvss_v2": "7.8", "references": "XREF:USN:6997-2 | https://ubuntu.com/security/notices/USN-6997-2 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2024-7006", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "201117", "name": "Ubuntu 14.04 LTS : SQLite vulnerability (USN-5615-3)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2020-35525", "description": "The remote Ubuntu 14.04 LTS host has packages installed that are affected by a vulnerability as referenced in the USN-5615-3 advisory. USN-5615-1 fixed several vulnerabilities in SQLite. This update provides the corresponding fix for     CVE-2020-35525 for Ubuntu 14.04 LTS. Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for this issue but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing a security update.", "solution": "Update the affected packages.", "cvss_v3": "7.5", "cvss_v2": "7.8", "references": "XREF:USN:5615-3 | https://ubuntu.com/security/notices/USN-5615-3 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2020-35525", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "206005", "name": "Ubuntu 14.04 LTS : Vim vulnerabilities (USN-6965-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2021-3973, CVE-2021-3974, CVE-2021-3984, CVE-2021-4019, CVE-2021-4069", "description": "The remote Ubuntu 14.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-6965-1 advisory. It was discovered that vim incorrectly handled parsing of filenames in its search functionality. If a user     was tricked into opening a specially crafted file, an attacker could crash the application, leading to a     denial of service. (CVE-2021-3973) It was discovered that vim incorrectly handled memory when opening and searching the contents of certain     files. If a user was tricked into opening a specially crafted file, an attacker could crash the     application, leading to a denial of service, or possibly achieve code execution with user privileges. (CVE-2021-3974) It was discovered that vim incorrectly handled memory when opening and editing certain files. If a user     was tricked into opening a specially crafted file, an attacker could crash the application, leading to a     denial of service, or possibly achieve code execution with user privileges. (CVE-2021-3984, CVE-2021-4019,     CVE-2021-4069) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "7.8", "cvss_v2": "9.3", "references": "XREF:USN:6965-1 | https://ubuntu.com/security/notices/USN-6965-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2021-3973 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2021-3974 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2021-3984 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2021-4019 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2021-4069", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "125851", "name": "Ubuntu 14.04 LTS : glib2.0 vulnerability (USN-4014-2)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2019-12450", "description": "USN-4014-1 fixed a vulnerability in GLib. This update provides the corresponding update for Ubuntu 12.04 ESM and Ubuntu 14.04 ESM. Original advisory details : It was discovered that GLib incorrectly handled certain files. An attacker could possibly use this issue to access sensitive information. Note that Tenable Network Security has extracted the preceding description block directly from the Ubuntu security advisory. Tenable has attempted to automatically clean and format it as much as possible without introducing additional issues.", "synopsis": "The remote Ubuntu host is missing one or more security-related patches.", "solution": "Update the affected libglib2.0-0, libglib2.0-bin and / or libglib2.0-dev packages.", "cvss_v3": "9.8", "cvss_v2": "7.5", "references": "XREF:USN:4014-2 | https://usn.ubuntu.com/4014-2/ | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2019-12450", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "233953", "name": "Ubuntu 14.04 LTS : libdbd-mysql-perl vulnerabilities (USN-7417-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2016-1249, CVE-2016-1251, CVE-2017-10788, CVE-2017-10789", "description": "The remote Ubuntu 14.04 LTS host has a package installed that is affected by multiple vulnerabilities as referenced in the USN-7417-1 advisory. It was discovered that libdbd-mysql-perl did not correctly handle certain SQL queries. An attacker could     possibly use this issue to cause a denial of service. (CVE-2016-1249) It was discovered that libdbd-mysql-perl did not correctly handle certain memory operations, which could     lead to a use-after-free vulnerability. A remote attacker could possibly use this issue to cause a denial     of service or execute arbitrary code. (CVE-2016-1251, CVE-2017-10788) It was discovered that libdbd-mysql-perl did not properly enforce SSL connections depending on the     mysql_ssl setting. A machine-in-the-middle attacker could possibly use this issue to spoof servers. (CVE-2017-10789) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected libdbd-mysql-perl package.", "cvss_v3": "9.8", "cvss_v2": "7.5", "references": "XREF:USN:7417-1 | https://ubuntu.com/security/notices/USN-7417-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2016-1249 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2016-1251 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-10788 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2017-10789", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "277316", "name": "Ubuntu 14.04 LTS : libxml2 vulnerabilities (USN-7896-1)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "CVE-2025-7425, CVE-2025-32414, CVE-2025-32415", "description": "The remote Ubuntu 14.04 LTS host has packages installed that are affected by multiple vulnerabilities as referenced in the USN-7896-1 advisory. It was discovered that the libxml2 Python bindings incorrectly handled certain return values. An attacker     could possibly use this issue to cause libxml2 to crash, resulting in a denial of service. (CVE-2025-32414) It was discovered that libxml2 incorrectly handled certain memory operations. A remote attacker could     possibly use this issue to cause libxml2 to crash, resulting in a denial of service. (CVE-2025-32415) It was discovered that libxslt, used by libxml2, incorrectly handled certain attributes. An attacker could     use this issue to cause a crash, resulting in a denial of service, or possibly execute arbitrary code. This update adds a fix to libxml2 to mitigate the libxslt vulnerability. (CVE-2025-7425) Tenable has extracted the preceding description block directly from the Ubuntu security advisory. Note that Nessus has not tested for these issues but has instead relied only on the application's self-reported version number.", "synopsis": "The remote Ubuntu host is missing one or more security updates.", "solution": "Update the affected packages.", "cvss_v3": "7.5", "cvss_v2": "7.8", "references": "XREF:IAVA:2025-A-0229-S | XREF:IAVA:2025-A-0293-S | XREF:USN:7896-1 | https://ubuntu.com/security/notices/USN-7896-1 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-7425 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-32414 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2025-32415", "exploitable_with": ""}, {"scan_type": "Authenticated", "plugin_id": "125475", "name": "Ubuntu 14.04 LTS : samba vulnerability (USN-3976-4)", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "0", "cve": "", "description": "USN-3976-1 fixed a vulnerability in Samba. The update introduced a regression causing Samba to occasionally crash. This update fixes the problem. Original advisory details : Isaac Boukris and Andrew Bartlett discovered that Samba incorrectly checked S4U2Self packets. In certain environments, a remote attacker could possibly use this issue to escalate privileges. Note that Tenable Network Security has extracted the preceding description block directly from the Ubuntu security advisory. Tenable has attempted to automatically clean and format it as much as possible without introducing additional issues.", "synopsis": "The remote Ubuntu host is missing a security-related patch.", "solution": "Update the affected samba package.", "cvss_v3": "", "cvss_v2": "", "references": "XREF:USN:3976-4 | https://usn.ubuntu.com/3976-4/", "exploitable_with": ""}];
+const NONAUTH_DATA = [{"scan_type": "Unauthenticated", "plugin_id": "201408", "name": "Canonical Ubuntu Linux SEoL (14.04.x)", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "80", "cve": "", "description": "According to its version, Canonical Ubuntu Linux is 14.04.x. It is, therefore, no longer maintained by its vendor or provider. Lack of support implies that no new security patches for the product will be released by the vendor. As a result, it may contain security vulnerabilities.", "synopsis": "An unsupported version of Canonical Ubuntu Linux is installed on the remote host.", "solution": "Upgrade to a version of Canonical Ubuntu Linux that is currently supported.", "cvss_v3": "10.0", "cvss_v2": "10.0", "references": "http://www.nessus.org/u?5afc4199", "exploitable_with": ""}, {"scan_type": "Unauthenticated", "plugin_id": "92626", "name": "Drupal Coder Module Deserialization RCE", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "80", "cve": "", "description": "The version of Drupal running on the remote web server is affected by a remote code execution vulnerability in the Coder module, specifically in file coder_upgrade.run.php, due to improper validation of user-supplied input to the unserialize() function. An unauthenticated, remote attacker can exploit this, via a specially crafted request, to execute arbitrary PHP code.", "synopsis": "A PHP application running on the remote web server is affected by a remote code execution vulnerability.", "solution": "Upgrade the Coder module to version 7.x-1.3 / 7.x-2.6 or later. Alternatively, remove the entire Coder module directory from any publicly accessible website.", "cvss_v3": "", "cvss_v2": "10.0", "references": "XREF:EDB-ID:40149 | https://www.drupal.org/node/2765575 | https://www.drupal.org/project/coder", "exploitable_with": ""}, {"scan_type": "Unauthenticated", "plugin_id": "84215", "name": "ProFTPD mod_copy Information Disclosure", "severity": "Critical", "host": "192.168.56.115", "protocol": "tcp", "port": "21", "cve": "CVE-2015-3306", "description": "The remote host is running a version of ProFTPD that is affected by an information disclosure vulnerability in the mod_copy module due to the SITE CPFR and SITE CPTO commands being available to unauthenticated clients. An unauthenticated, remote attacker can exploit this flaw to read and write to arbitrary files on any web accessible path on the host.", "synopsis": "The remote host is running a ProFTPD module that is affected by an information disclosure vulnerability.", "solution": "Upgrade to ProFTPD 1.3.5a / 1.3.6rc1 or later.", "cvss_v3": "9.8", "cvss_v2": "10.0", "references": "BID:74238 | XREF:EDB-ID:36742 | XREF:EDB-ID:36803 | http://bugs.proftpd.org/show_bug.cgi?id=4169 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2015-3306", "exploitable_with": "CANVAS,Metasploit"}, {"scan_type": "Unauthenticated", "plugin_id": "78515", "name": "Drupal Database Abstraction API SQLi", "severity": "High", "host": "192.168.56.115", "protocol": "tcp", "port": "80", "cve": "CVE-2014-3704", "description": "The remote web server is running a version of Drupal that is affected by a SQL injection vulnerability due to a flaw in the Drupal database abstraction API, which allows a remote attacker to use specially crafted requests that can result in arbitrary SQL execution. This may lead to privilege escalation, arbitrary PHP execution, or remote code execution.", "synopsis": "The remote web server is running a PHP application that is affected by a SQL injection vulnerability.", "solution": "Upgrade to version 7.32 or later.", "cvss_v3": "", "cvss_v2": "7.5", "references": "BID:70595 | XREF:EDB-ID:34984 | XREF:EDB-ID:34992 | XREF:EDB-ID:34993 | XREF:EDB-ID:35150 | https://www.drupal.org/SA-CORE-2014-005 | https://www.drupal.org/project/drupal/releases/7.32 | http://web.nvd.nist.gov/view/vuln/detail?vulnId=CVE-2014-3704", "exploitable_with": "CANVAS,Core Impact,Metasploit"}];
+
+const COLORS = {
+  Critical: '#ff3b5c',
+  High: '#ff7c38',
+  Medium: '#ffc542',
+  Low: '#4fc3f7',
+  Info: '#78909c'
+};
+
+// ---- ACTIVE FILTERS ----
+const filters = {
+  auth: new Set(['Critical','High']),
+  nonauth: new Set(['Critical','High'])
+};
+let searchTerms = { auth: '', nonauth: '' };
+
+// ---- RENDER TABLES ----
+function renderTable(type) {
+  const data = type === 'auth' ? AUTH_DATA : NONAUTH_DATA;
+  const tbody = document.getElementById('tbody-' + type);
+  const search = searchTerms[type].toLowerCase();
+  const activeFilters = filters[type];
+
+  const filtered = data.filter(r => {
+    if (!activeFilters.has(r.severity)) return false;
+    if (search && !r.name.toLowerCase().includes(search) && !r.plugin_id.includes(search) && !r.cve.toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  tbody.innerHTML = filtered.map(r => `
+    <tr>
+      <td><span style="font-family:JetBrains Mono,monospace;font-size:11px;color:#64748b">${r.plugin_id}</span></td>
+      <td><span class="badge ${r.severity}">${r.severity}</span></td>
+      <td class="name-cell" style="max-width:250px">${r.name}</td>
+      <td>${r.cve ? `<span class="cve-tag">${r.cve}</span>` : '<span style="color:#334155">—</span>'}</td>
+      <td>${r.port ? `<span class="port-tag">${r.protocol}/${r.port}</span>` : '<span style="color:#334155">—</span>'}</td>
+      <td><span class="cvss-num" style="color:${r.cvss_v3 >= 9 ? 'var(--critical)' : r.cvss_v3 >= 7 ? 'var(--high)' : 'var(--medium)'}">${r.cvss_v3 || '—'}</span></td>
+      <td>${r.exploitable_with ? `<span class="exploit-tag">⚡ ${r.exploitable_with.substring(0,30)}</span>` : '<span style="color:#334155">—</span>'}</td>
+    </tr>
+  `).join('');
+}
+
+function filterTable(type, val) {
+  searchTerms[type] = val;
+  renderTable(type);
+}
+
+function toggleFilter(type, severity, btn) {
+  if (filters[type].has(severity)) {
+    if (filters[type].size > 1) {
+      filters[type].delete(severity);
+      btn.classList.remove('active');
+    }
+  } else {
+    filters[type].add(severity);
+    btn.classList.add('active');
+  }
+  renderTable(type);
+}
+
+// ---- TABS ----
+function switchTab(tab) {
+  ['auth','nonauth','compare'].forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('page-hidden', t !== tab);
+  });
+  document.querySelectorAll('.tab').forEach((el,i) => {
+    el.classList.toggle('active', ['auth','nonauth','compare'][i] === tab);
+  });
+  if (tab === 'compare') renderCompare();
+}
+
+// ---- CHARTS ----
+Chart.defaults.color = '#64748b';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 10;
+
+const chartOpts = {
+  responsive: true,
+  maintainAspectRatio: true,
+  plugins: { legend: { display: false } },
+};
+
+// Donut auth
+new Chart(document.getElementById('donut-auth'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Critical','High','Medium','Low','Info'],
+    datasets: [{ data: [15,35,58,8,161], backgroundColor: ['#ff3b5c','#ff7c38','#ffc542','#4fc3f7','#78909c'], borderWidth: 0, hoverOffset: 6 }]
+  },
+  options: { ...chartOpts, cutout: '68%' }
+});
+
+// Donut nonauth
+new Chart(document.getElementById('donut-nonauth'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Critical','High','Medium','Low','Info'],
+    datasets: [{ data: [3,1,9,4,73], backgroundColor: ['#ff3b5c','#ff7c38','#ffc542','#4fc3f7','#78909c'], borderWidth: 0, hoverOffset: 6 }]
+  },
+  options: { ...chartOpts, cutout: '68%' }
+});
+
+// Bar auth ports
+const authCH = AUTH_DATA.filter(r => ['Critical','High'].includes(r.severity));
+const portCounts = {};
+authCH.forEach(r => {
+  const k = r.port && r.port !== '0' ? (r.protocol + '/' + r.port) : 'General';
+  portCounts[k] = (portCounts[k]||0)+1;
+});
+const sortedPorts = Object.entries(portCounts).sort((a,b)=>b[1]-a[1]).slice(0,7);
+new Chart(document.getElementById('bar-auth-ports'), {
+  type: 'bar',
+  data: {
+    labels: sortedPorts.map(p=>p[0]),
+    datasets: [{ data: sortedPorts.map(p=>p[1]), backgroundColor: '#7c5cfc', borderRadius: 6, borderSkipped: false }]
+  },
+  options: { ...chartOpts, scales: { x: { grid: { color: '#1e2535' } }, y: { grid: { color: '#1e2535' }, ticks: { stepSize: 1 } } } }
+});
+
+// Scatter auth CVSS
+const cvssData = AUTH_DATA.filter(r => r.cvss_v3 && ['Critical','High'].includes(r.severity)).map((r,i) => ({ x: i, y: parseFloat(r.cvss_v3), sev: r.severity }));
+new Chart(document.getElementById('scatter-auth'), {
+  type: 'scatter',
+  data: {
+    datasets: [{
+      data: cvssData,
+      backgroundColor: cvssData.map(p => p.sev === 'Critical' ? 'rgba(255,59,92,0.7)' : 'rgba(255,124,56,0.7)'),
+      pointRadius: 5,
+      pointHoverRadius: 7
+    }]
+  },
+  options: { ...chartOpts, scales: { x: { display: false }, y: { min: 6, max: 10.5, grid: { color: '#1e2535' } } } }
+});
+
+// Bar nonauth ports
+const naAllPorts = {};
+NONAUTH_DATA.forEach(r => {
+  if (!['Critical','High','Medium'].includes(r.severity)) return;
+  const k = r.port && r.port !== '0' ? (r.protocol+'/'+r.port) : 'General';
+  naAllPorts[k] = (naAllPorts[k]||0)+1;
+});
+const naSorted = Object.entries(naAllPorts).sort((a,b)=>b[1]-a[1]).slice(0,7);
+new Chart(document.getElementById('bar-nonauth-ports'), {
+  type: 'bar',
+  data: {
+    labels: naSorted.map(p=>p[0]),
+    datasets: [{ data: naSorted.map(p=>p[1]), backgroundColor: '#22d3a5', borderRadius: 6, borderSkipped: false }]
+  },
+  options: { ...chartOpts, scales: { x: { grid: { color: '#1e2535' } }, y: { grid: { color: '#1e2535' }, ticks: { stepSize: 1 } } } }
+});
+
+// Bar nonauth risk breakdown
+new Chart(document.getElementById('bar-nonauth-risk'), {
+  type: 'bar',
+  data: {
+    labels: ['Critical','High','Medium','Low'],
+    datasets: [{ data: [3,1,9,4], backgroundColor: ['#ff3b5c','#ff7c38','#ffc542','#4fc3f7'], borderRadius: 6, borderSkipped: false }]
+  },
+  options: { ...chartOpts, scales: { x: { grid: { color: '#1e2535' } }, y: { grid: { color: '#1e2535' }, ticks: { stepSize: 1 } } } }
+});
+
+// Compare chart
+let compareChart = null;
+function renderCompare() {
+  if (compareChart) return;
+  compareChart = new Chart(document.getElementById('compare-bar'), {
+    type: 'bar',
+    data: {
+      labels: ['Critical','High','Medium','Low','Info'],
+      datasets: [
+        { label: 'Authenticated', data: [15,35,58,8,161], backgroundColor: 'rgba(124,92,252,0.8)', borderRadius: 6, borderSkipped: false },
+        { label: 'Unauthenticated', data: [3,1,9,4,73], backgroundColor: 'rgba(34,211,165,0.6)', borderRadius: 6, borderSkipped: false }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: { legend: { display: true, labels: { color: '#94a3b8', font: { size: 11 } } } },
+      scales: { x: { grid: { color: '#1e2535' } }, y: { grid: { color: '#1e2535' } } }
+    }
+  });
+
+  // Common vulns
+  const authIds = new Set(AUTH_DATA.map(r=>r.plugin_id));
+  const common = NONAUTH_DATA.filter(r => authIds.has(r.plugin_id) && ['Critical','High'].includes(r.severity));
+  const container = document.getElementById('common-vulns');
+  if (common.length === 0) {
+    container.innerHTML = '<div style="color:#64748b;font-size:12px;">Nenhuma vulnerabilidade Critical/High em comum.</div>';
+  } else {
+    container.innerHTML = common.map(r => `
+      <div class="compare-row-item" style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);">
+        <span class="badge ${r.severity}">${r.severity}</span>
+        <span style="font-family:JetBrains Mono,monospace;font-size:10px;color:#64748b">${r.plugin_id}</span>
+        <span style="font-weight:600;font-size:13px">${r.name}</span>
+        ${r.cve ? `<span class="cve-tag">${r.cve}</span>` : ''}
+        ${r.exploitable_with ? `<span class="exploit-tag">⚡ Explorável</span>` : ''}
+      </div>
+    `).join('');
+  }
+}
+
+// Init
+renderTable('auth');
+renderTable('nonauth');
+</script>
+</body>
+</html>
